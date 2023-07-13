@@ -5,6 +5,8 @@
 
 #define ETHER_ADDR_LEN 6
 #define ETHERTYPE_IP 0x0800
+#define IPTYPE_TCP 0x06
+
 struct libnet_ethernet_hdr
 {
     u_int8_t  ether_dhost[ETHER_ADDR_LEN];/* destination ethernet address */
@@ -79,17 +81,17 @@ struct libnet_ipv4_hdr
 
 
 void print_mac(u_int8_t *m){
-	printf("%02x:%02x:%02x:%02x:%02x:%02x",m[0],m[1],m[2],m[3],m[4],m[5]);
+	printf("mac : %02x:%02x:%02x:%02x:%02x:%02x\n",m[0],m[1],m[2],m[3],m[4],m[5]);
 
 }
 
 void print_ip(struct in_addr *ip){
 	u_int8_t *tmp = (u_int8_t *)ip;
-	printf("%d.%d.%d.%d", tmp[0], tmp[1],tmp[2],tmp[3]);
+	printf("ip address : %d.%d.%d.%d\n", tmp[0], tmp[1],tmp[2],tmp[3]);
 }
 
 void print_tcp_port(u_int16_t *port){
-	printf("%d", port[0]);
+	printf("port : %d\n", port[0]);
 }
 
 void usage() {
@@ -134,26 +136,34 @@ int main(int argc, char* argv[]) {
 			printf("pcap_next_ex return %d(%s)\n", res, pcap_geterr(pcap));
 			break;
 		}
-		printf("%u bytes captured\n", (header)->caplen);
+		
 		
 		struct libnet_ethernet_hdr * eth_hdr = (struct libnet_ethernet_hdr *)packet;
 		struct libnet_ipv4_hdr * ipv4_hdr = (struct libnet_ipv4_hdr *)(packet+sizeof(struct libnet_ethernet_hdr));
 		struct libnet_tcp_hdr * tcp_hdr = (struct libnet_tcp_hdr *)(ipv4_hdr + sizeof(struct libnet_ipv4_hdr));
 		
-		print_mac(eth_hdr->ether_shost);
-		printf(" ");
-		print_mac(eth_hdr->ether_dhost);
-		printf("\n");
-		print_ip(&(ipv4_hdr->ip_src));
-		printf(" ");
-		print_ip(&(ipv4_hdr->ip_dst));
-		printf("\n");
-		print_tcp_port(&(tcp_hdr->th_sport));
-		printf(" ");
-		print_tcp_port(&(tcp_hdr->th_dport));
-		printf("\n");
 		if(ntohs(eth_hdr->ether_type)!=ETHERTYPE_IP)
 			continue;
+		
+		if(ipv4_hdr->ip_p != IPTYPE_TCP)
+			continue;
+		printf("********************distinguishing line*************************\n");
+		printf("%u bytes captured\n", (header)->caplen);
+
+		printf("-----source-----\n");
+		print_mac(eth_hdr->ether_shost);
+		print_ip(&(ipv4_hdr->ip_src));
+		print_tcp_port(&(tcp_hdr->th_sport));
+		printf("-----destination-----\n");
+		print_mac(eth_hdr->ether_dhost);
+		print_ip(&(ipv4_hdr->ip_dst));
+		print_tcp_port(&(tcp_hdr->th_dport));
+		printf("-----etc-----\n");
+		printf("(ip)TTL : %d\n",ipv4_hdr->ip_ttl);
+		printf("(ip)type of service : %d\n",ipv4_hdr->ip_tos);
+
+
+
 	}
 
 	pcap_close(pcap);
